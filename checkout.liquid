@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}" dir="{{ direction }}" class="{{ checkout_html_classes }}">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, height=device-height, minimum-scale=1.0, user-scalable=0">
+    <meta name="referrer" content="origin">
+
+    <title>{{ page_title }}</title>
+
+    {{ content_for_header }}
+
+    {{ checkout_stylesheets }}
+    {{ checkout_scripts }}
+
+    <!-- custom styleshset -->
+    <style media="screen">
+      .sidebar__upsell {
+        padding-top: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid rgba(179,179,179,0.34);
+      }
+      .sidebar__upsell-header {
+        margin-bottom: 1.5em;
+        padding-bottom: 1em;
+        border-bottom: 1px solid rgba(179,179,179,0.34);
+      }
+      .order-summary__sections {
+        height: 100%;
+      }
+    </style>
+    <!-- ./custom stylesheet -->
+  </head>
+  <body>
+    {{ skip_to_content_link }}
+
+    <header class="banner" data-header role="banner">
+      <div class="wrap">
+        {{ content_for_logo }}
+      </div>
+    </header>
+    {{ order_summary_toggle }}
+    <div class="content" data-content>
+      <div class="wrap">
+        <div class="main">
+          <header class="main__header" role="banner">
+            {{ content_for_logo }}
+            {{ breadcrumb }}
+            {{ alternative_payment_methods }}
+          </header>
+          <main class="main__content" role="main">
+            {{ content_for_layout }}
+          </main>
+          <footer class="main__footer" role="contentinfo">
+            {{ content_for_footer }}
+          </footer>
+        </div>
+        <aside class="sidebar" role="complementary">
+          <div class="sidebar__header">
+            {{ content_for_logo }}
+          </div>
+          <div class="sidebar__content">
+            {{ content_for_order_summary }}
+            <div class="sidebar__upsell">
+              <div class="sidebar__upsell-header">
+                <h3>UPSELL ITEMS</h3>
+              </div>
+              <div class="sidebar__upsell-body">
+                <table class="product-table" data-upsell-table>
+                  <tbody data-order-summary-section="line-items">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    {{ tracking_code }}
+
+    <!-- UPSELL SCRIPT -->
+    <script type="text/javascript">
+      (function CheckoutUpsell() {
+        'use strict';
+
+        // Perform changes only on the shipping_method step
+        if (Shopify.Checkout.step !== 'contact_information') return;
+
+        // Upsell Items (can be added as many products as possible)
+        const upsellProductHandles = [
+          `countycomm-gp-5-ssb-general-purpose-radio`,
+          `anodized-edc-pendulum-pen-limited-edition`,
+        ];
+
+        // Logic
+        const init = () => {
+          const upsellTable = document.querySelector('[data-upsell-table]');
+          const upsellTableBody = upsellTable.getElementsByTagName('tbody')[0];
+
+          // Fetch Upsell Products
+          upsellProductHandles.forEach((handle) => {
+            fetch(`/products/${handle}.js`) // Call the fetch function passing the url of the API as a parameter
+              .then(response => response.json())
+              .then(product => {
+                const firstAvailableVariant = product.variants[0];
+                const featuredImage = product.media[0];
+                const template =
+                  `<tr class="product" data-product-id="${product.id}" data-variant-id="${firstAvailableVariant.id}" data-product-type="${product.type}">
+                    <td class="product__image">
+                      <div class="product-thumbnail ">
+                        <div class="product-thumbnail__wrapper">
+                          <img alt="${featuredImage.alt}" class="product-thumbnail__image" src="${featuredImage.src}">
+                        </div>
+                      </div>
+                    </td>
+                    <th class="product__description" scope="row">
+                      <span class="product__description__name order-summary__emphasis">${product.title}</span>
+                      <span class="product__description__variant order-summary__small-text"></span>
+                    </th>
+                    <td class="product__quantity">
+                      <span class="visually-hidden">
+                        1
+                      </span>
+                    </td>
+                    <td class="product__price">
+                      <span class="order-summary__emphasis skeleton-while-loading">$${product.price / 100.0}</span>
+                    </td>
+                    <td class="product__price">
+                      <button class="field__input-btn btn btn-add" data-variant-id="${firstAvailableVariant.id}">Add</button>
+                    </td>
+                  </tr>`;
+
+                upsellTableBody.innerHTML += template;
+              })
+              .catch((error) => {
+                console.error('Upsell product fetch error:', error);
+              });
+          });
+        }
+
+        // Initialize after Shopify renders the checkout
+        document.addEventListener('page:load', init);
+
+        // Reinitialize on DOM refresh
+        document.addEventListener('page:change', init);
+      })();
+
+      // Process add-to-cart event
+      window.addEventListener('load', (event) => {
+        const btnAddElements = document.getElementsByClassName('btn-add');
+
+        for (let i = 0; i < btnAddElements.length; i++) {
+          const element = btnAddElements[i];
+          element.addEventListener('click', (e) => {
+            const variantId = e.currentTarget.dataset.variantId;
+
+            let formData = {
+             'items': [{
+              'id': variantId,
+              'quantity': 1,
+              }]
+            };
+
+            fetch('/cart/add.js', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(formData)
+            })
+            .then(response => {
+              return response.json();
+            })
+            .then(data => {
+              location.reload();
+            })
+            .catch((error) => {
+              console.error('Upseel product add error:', error);
+            });
+          });
+        };
+      });
+    </script>
+  </body>
+</html>
